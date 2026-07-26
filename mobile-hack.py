@@ -34,8 +34,8 @@ except ImportError:
 
 # ── Modules ────────────────────────────────────────────────────────────────────
 sys.path.insert(0, os.path.dirname(__file__))
-from modules import adb_manager, apk_analyzer, network_scanner
-from modules import vulnerability_scanner, exploit_engine, payload_generator, report_generator
+from Framework import adb_manager, apk_analyzer, network_scanner
+from Framework import vulnerability_scanner, exploit_engine, payload_generator, report_generator
 
 console = Console()
 
@@ -50,7 +50,7 @@ TOOL_NAME   = "Mobile-Hack"
 # ═══════════════════════════════════════════════════════════════════════════════
 
 BANNER_ART = r"""
-  ███╗   ███╗ ██████╗ ██████╗ ██╗██╗     ███████╗      ██╗  ██╗ █████╗  ██████╗██╗  ██╗
+███╗   ███╗ ██████╗ ██████╗ ██╗██╗     ███████╗      ██╗  ██╗ █████╗  ██████╗██╗  ██╗
 ████╗ ████║██╔═══██╗██╔══██╗██║██║     ██╔════╝      ██║  ██║██╔══██╗██╔════╝██║ ██╔╝
 ██╔████╔██║██║   ██║██████╔╝██║██║     █████╗        ███████║███████║██║     █████╔╝
 ██║╚██╔╝██║██║   ██║██╔══██╗██║██║     ██╔══╝        ██╔══██║██╔══██║██║     ██╔═██╗
