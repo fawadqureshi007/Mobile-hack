@@ -1,0 +1,11 @@
+rich>=13.0.0
+requests>=2.31.0
+colorama>=0.4.6
+adbutils>=2.8.0      # If using adbutils
+pyfiglet>=1.0.2      # ASCII banners
+psutil>=5.9.8        # System information
+qrcode>=8.0          # QR code generation
+Pillow>=11.0.0       # Image processing
+pyyaml>=6.0.2        # YAML configuration
+beautifulsoup4>=4.12.3  # HTML parsing
+lxml>=5.2.2          # Fast XML/HTML parsing
