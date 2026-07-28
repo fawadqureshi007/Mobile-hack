@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════════╗
-║      Mobile-Hack — Advanced Android H*CKING Pentesting Tool      ║
-║      Name : Fawad Qureshi                                        ║
-║      Instagram: @h4cker_fawad                                    ║
-║      For authorized penetration testing use only                 ║
+║          DroidHunter — Advanced Android Pentesting Tool          ║
+║          Author : HexSecTeam                                     ║
+║          Contact: Instagram @hexsecteam                          ║
+║          For authorized penetration testing use only             ║
 ╚══════════════════════════════════════════════════════════════════╝
 """
 
@@ -34,15 +34,16 @@ except ImportError:
 
 # ── Modules ────────────────────────────────────────────────────────────────────
 sys.path.insert(0, os.path.dirname(__file__))
-from Framework import adb_manager, apk_analyzer, network_scanner
-from Framework import vulnerability_scanner, exploit_engine, payload_generator, report_generator
+from modules import adb_manager, apk_analyzer, network_scanner
+from modules import vulnerability_scanner, exploit_engine, payload_generator, report_generator
 
 console = Console()
 
 VERSION     = "2.0.0"
-Name        = "Fawad Qureshi"
-INSTAGRAM   = "@h4cker_fawad"
-TOOL_NAME   = "Mobile-Hack"
+AUTHOR      = "HexSecTeam"
+INSTAGRAM   = "@hexsecteam"
+TOOL_NAME   = "DroidHunter"
+YEAR        = "2026"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -50,13 +51,11 @@ TOOL_NAME   = "Mobile-Hack"
 # ═══════════════════════════════════════════════════════════════════════════════
 
 BANNER_ART = r"""
-███╗   ███╗ ██████╗ ██████╗ ██╗██╗     ███████╗      ██╗  ██╗ █████╗  ██████╗██╗  ██╗
-████╗ ████║██╔═══██╗██╔══██╗██║██║     ██╔════╝      ██║  ██║██╔══██╗██╔════╝██║ ██╔╝
-██╔████╔██║██║   ██║██████╔╝██║██║     █████╗        ███████║███████║██║     █████╔╝
-██║╚██╔╝██║██║   ██║██╔══██╗██║██║     ██╔══╝        ██╔══██║██╔══██║██║     ██╔═██╗
-██║ ╚═╝ ██║╚██████╔╝██████╔╝██║███████╗███████╗      ██║  ██║██║  ██║╚██████╗██║  ██╗
-╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚═╝╚══════╝╚══════╝      ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
-             [ ACCESS GRANTED ]   [ h4cker_fawad ]
+    ____             _     ____  __            __            
+   / __ \_________  (_)___/ / / / /_  ______  / /____  _____
+  / / / / ___/ __ \/ / __  / /_/ / / / / __ \/ __/ _ \/ ___/
+ / /_/ / /  / /_/ / / /_/ / __  / /_/ / / / / /_/  __/ /    
+/_____/_/   \____/_/\__,_/_/ /_/\__,_/_/ /_/\__/\___/_/     
 """
 
 BANNER_LINES_GRADIENT = [
@@ -110,7 +109,7 @@ def animate_glitch_banner():
         time.sleep(0.05)
 
 def print_banner():
-    """Print the animated Mobile-Hack banner with live status."""
+    """Print the animated DroidHunter banner with live status."""
     animate_glitch_banner()
 
     # Tagline
@@ -134,36 +133,35 @@ def print_banner():
 # ═══════════════════════════════════════════════════════════════════════════════
 #  MAIN MENU
 # ═══════════════════════════════════════════════════════════════════════════════
+
 MENU_OPTIONS = [
-    ("1",  "📱", "Device Manager",          "Manage connected Android devices"),
-    ("2",  "📦", "APK Analyzer",            "Analyze & reverse Android APK files"),
-    ("3",  "🌐", "Network Scanner",         "Scan hosts, ports & WiFi networks"),
-    ("4",  "🚨", "Security Scanner",        "Detect vulnerabilities & security issues"),
-    ("5",  "💥", "Exploit Toolkit",         "Deep links, intents & testing modules"),
-    ("6",  "🎯", "Payload Generator",       "Generate APK payloads & test payloads"),
-    ("7",  "📋", "Report Generator",        "Export HTML, JSON & PDF reports"),
-    ("8",  "📡", "ADB over WiFi",           "Connect Android devices via WiFi"),
-    ("9",  "⚡", "Auto WiFi ADB",           "Automatically switch USB ADB to WiFi"),
-    ("10", "📸", "Screen Capture",          "Capture screenshots from device"),
-    ("11", "📦", "Package Manager",         "List, install & uninstall applications"),
-    ("12", "🐛", "Logcat Analyzer",         "Analyze Logcat output for debugging"),
-    ("13", "🔐", "Security Checks",         "SSL pinning & app security inspection"),
-    ("14", "📂", "File Manager",            "Push & pull files using ADB"),
-    ("15", "💻", "ADB Shell",               "Interactive Android shell session"),
-    ("16", "🧰", "Remote Toolkit",          "Screen, camera & file management tools"),
-    ("17", "⚙️", "Utilities",               "Encoding, hashing & helper utilities"),
-    ("18", "📖", "About",                   "About Mobile-Hack"),
-    ("0",  "🚪", "Exit",                    "Exit Mobile-Hack"),
+    ("1",  "📱", "Device Manager",          "List & manage connected Android devices"),
+    ("2",  "🔎", "APK Static Analyzer",     "Decompile & audit an APK file"),
+    ("3",  "🌐", "Network Scanner",         "Port scan, WiFi info, host discovery"),
+    ("4",  "🚨", "Vulnerability Scanner",   "CVE mapping, root check, insecure storage"),
+    ("5",  "💥", "Exploit Engine",          "Launch activities, deep links, shell dropper"),
+    ("6",  "🎯", "Payload Generator",       "APK payloads, reverse shells, obfuscation"),
+    ("7",  "📋", "Report Generator",        "Generate HTML/JSON security report"),
+    ("8",  "📡", "ADB WiFi Connect",        "Enable & connect ADB over WiFi"),
+    ("9",  "⚡", "Auto ADB WiFi Connect",   "Automatically switch USB ADB to WiFi mode"),
+    ("10", "📸", "Screenshot Capture",      "Capture device screenshot via ADB"),
+    ("11", "📦", "Package Manager",         "Enumerate installed packages"),
+    ("12", "🐛", "Logcat Analyzer",         "Capture & analyze logcat for secrets"),
+    ("13", "🔐", "SSL Pinning Check",       "Detect SSL pinning in target app"),
+    ("14", "📂", "File Transfer",           "Pull/push files from/to device"),
+    ("15", "💻", "Interactive ADB Shell",   "Drop into live ADB shell"),
+    ("16", "🧰", "Remote Control",          "Remote screen, file explorer, camera and device control tools"),
+    ("17", "❔", "About",                   "About DroidHunter"),
+    ("0",  "🚪", "Exit",                    "Exit DroidHunter"),
 ]
 
 REMOTE_CONTROL_OPTIONS = [
-    ("1", "🖥️", "Remote Screen",     "Mirror Android screen with scrcpy"),
-    ("2", "📁", "File Explorer",     "Browse device storage"),
-    ("3", "📷", "Camera Control",    "Access remote camera features"),
-    ("4", "📸", "Take Screenshot",   "Capture device screenshot"),
-    ("5", "🎥", "Screen Recorder",   "Record Android screen"),
-    ("6", "⌨️", "Keyboard & Mouse",  "Control device with PC input"),
-    ("0", "↩️", "Back",              "Return to Main Menu"),
+    ("1", "🖥️", "Open Remote Screen", "Open Android screen with scrcpy"),
+    ("2", "📁", "File Explorer",      "Browse device files"),
+    ("3", "📷", "Remote Camera",      "Open remote camera tools"),
+    ("4", "📸", "Take Screenshot",    "Capture device screenshot"),
+    ("5", "🎥", "Screen Record",      "Record device screen"),
+    ("0", "↩️", "Back",               "Return to main menu"),
 ]
 
 
@@ -394,11 +392,11 @@ def handle_report_generator():
     fmt = Prompt.ask("[cyan]Report format[/]", choices=["html", "json", "both", "table"], default="html")
 
     if fmt in ("html", "both"):
-        out = Prompt.ask("[cyan]HTML output filename[/]", default="mobile-hack_report.html")
+        out = Prompt.ask("[cyan]HTML output filename[/]", default="droidhunter_report.html")
         report_generator.generate_html_report(data, out)
 
     if fmt in ("json", "both"):
-        out = Prompt.ask("[cyan]JSON output filename[/]", default="mobile-hack_report.json")
+        out = Prompt.ask("[cyan]JSON output filename[/]", default="droidhunter_report.json")
         report_generator.generate_json_report(data, out)
 
     if fmt == "table":
@@ -539,16 +537,17 @@ def handle_about():
         f"\n"
         f"  [bold magenta]👻  {TOOL_NAME} v{VERSION}[/]\n\n"
         f"  [bold cyan]Advanced Android Penetration Testing Framework[/]\n\n"
-        f"  [white]A Crazy tool for hackers and security professionals.\n"
+        f"  [white]A comprehensive tool for ethical hackers and security professionals.\n"
         f"  Covers static APK analysis, dynamic runtime analysis via ADB,\n"
         f"  network scanning, vulnerability mapping, exploit assistance,\n"
         f"  payload generation, and professional report generation.[/]\n\n"
-        f"  [bold magenta]Name   :[/] [white]{AUTHOR}[/]\n"
+        f"  [bold magenta]Author   :[/] [white]{AUTHOR}[/]\n"
         f"  [bold magenta]Instagram:[/] [cyan]{INSTAGRAM}[/]\n"
-        f"  [bold magenta]Built by :[/] [white]h4cker_fawad[/]\n"
+        f"  [bold magenta]Built by :[/] [white]HexSec Team / HexSec Community[/]\n"
+        f"  [bold magenta]Year     :[/] [white]{YEAR}[/]\n\n"
         f"  [bold red]⚠  For authorized penetration testing use only.[/]\n"
-        f"  [dim]Unauthorized use is illegal Work.[/]\n",
-        title="[bold]About Mobile-Hack[/]",
+        f"  [dim]Unauthorized use is illegal and unethical.[/]\n",
+        title="[bold]About DroidHunter[/]",
         border_style="magenta",
         padding=(0, 4),
     )
@@ -612,24 +611,24 @@ def interactive_mode():
     print_banner()
     console.print(Panel(
         "[bold red]⚠  LEGAL DISCLAIMER[/]\n\n"
-        "[white]Mobile-Hack is designed for authorized security testing ONLY.\n"
+        "[white]DroidHunter is designed for authorized security testing ONLY.\n"
         "Use of this tool against systems you do not own or have explicit written\n"
         "permission to test is [bold red]ILLEGAL[/] and may result in criminal prosecution.\n"
         "The author assumes no liability for misuse.[/]",
         border_style="red", padding=(0, 2)))
 
-    if not Confirm.ask("\n[bold red]I confirm I have authorized to test the target system[/]", default=False):
-        console.print("[yellow]Exiting. Get proper authorization before testing.[/]")
+    if not Confirm.ask("\n[bold red]I confirm I have authorization to test the target system[/]", default=False):
+        console.print("[yellow]Exiting. Obtain proper authorization before testing.[/]")
         sys.exit(0)
 
     while True:
         console.print()
         print_main_menu()
         valid_choices = [num for num, *_ in MENU_OPTIONS]
-        choice = Prompt.ask("\n[bold cyan]Mobile-Hack ▶[/]", choices=valid_choices, show_choices=False)
+        choice = Prompt.ask("\n[bold cyan]DroidHunter ▶[/]", choices=valid_choices, show_choices=False)
 
         if choice == "0":
-            console.print("\n[bold magenta]👻 Quit Mobile-Hack. Stay Secure.[/]\n")
+            console.print("\n[bold magenta]👻 Exiting DroidHunter. Stay ethical.[/]\n")
             sys.exit(0)
 
         handler = HANDLER_MAP.get(choice)
@@ -654,18 +653,18 @@ def interactive_mode():
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="Mobile-Hack",
-        description=f"👻 Mobile-Hack v{VERSION} — Advanced Android Pentesting Tool by {Developer}",
+        prog="droidhunter",
+        description=f"👻 DroidHunter v{VERSION} — Advanced Android Pentesting Tool by {AUTHOR}",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python3 mobile-hack.py --interactive
-  python3 mobile-hack.py --apk app.apk --report html
-  python3 mobile-hack.py --device ABC123 --vuln-scan --pkg com.example.app
-  python3 mobile-hack.py --device ABC123 --port-scan
-  python3 mobile-hack.py --payload reverse_tcp --lhost 10.0.0.1 --lport 4444
-  python3 mobile-hack.py --device ABC123 --exploit deep-link --pkg com.example --scheme myapp
-  python3 mobile-hack.py --devices
+  python3 droidhunter.py --interactive
+  python3 droidhunter.py --apk app.apk --report html
+  python3 droidhunter.py --device ABC123 --vuln-scan --pkg com.example.app
+  python3 droidhunter.py --device ABC123 --port-scan
+  python3 droidhunter.py --payload reverse_tcp --lhost 10.0.0.1 --lport 4444
+  python3 droidhunter.py --device ABC123 --exploit deep-link --pkg com.example --scheme myapp
+  python3 droidhunter.py --devices
         """
     )
 
@@ -882,10 +881,10 @@ def cli_mode(args):
         if apk_data:
             data.update(apk_data)
         if args.report in ("html", "both"):
-            out = args.report_out or "mobile-hack_report.html"
+            out = args.report_out or "droidhunter_report.html"
             report_generator.generate_html_report(data, out)
         if args.report in ("json", "both"):
-            out = args.report_out or "mobile-hack_report.json"
+            out = args.report_out or "droidhunter_report.json"
             report_generator.generate_json_report(data, out)
         if args.report == "table":
             report_generator.print_summary_table(data)
@@ -915,5 +914,5 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        console.print("\n\n[bold magenta]👻 Mobile-Hack interrupted. Stay ethical - Stay Secure.[/]\n")
+        console.print("\n\n[bold magenta]👻 DroidHunter interrupted. Stay ethical.[/]\n")
         sys.exit(0)
