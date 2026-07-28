@@ -885,10 +885,10 @@ def cli_mode(args):
         if apk_data:
             data.update(apk_data)
         if args.report in ("html", "both"):
-            out = args.report_out or "droidhunter_report.html"
+            out = args.report_out or "mobile-hack_report.html"
             report_generator.generate_html_report(data, out)
         if args.report in ("json", "both"):
-            out = args.report_out or "droidhunter_report.json"
+            out = args.report_out or "mobile-hack_report.json"
             report_generator.generate_json_report(data, out)
         if args.report == "table":
             report_generator.print_summary_table(data)
