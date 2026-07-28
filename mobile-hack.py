@@ -546,7 +546,6 @@ def handle_about():
         f"  Covers static APK analysis, dynamic runtime analysis via ADB,\n"
         f"  network scanning, vulnerability mapping, exploit assistance,\n"
         f"  payload generation, and professional report generation.[/]\n\n"
-        f"  [bold magenta]Author   :[/] [white]{AUTHOR}[/]\n"
         f"  [bold magenta]Instagram:[/] [cyan]{INSTAGRAM}[/]\n"
         f"  [bold magenta]Built by :[/] [white]Mobile-Hack[/]\n"
         f"  [bold magenta]Year     :[/] [white]{YEAR}[/]\n\n"
@@ -659,7 +658,7 @@ def interactive_mode():
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="droidhunter",
-        description=f"👻 Mobile-Hack v{VERSION} — Advanced Android Pentesting Tool by {AUTHOR}",
+        description=f"👻 Mobile-Hack v{VERSION} — Advanced Android Pentesting Tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
