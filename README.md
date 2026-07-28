@@ -35,8 +35,6 @@ Mobile-Hack is developed by Fawad Qureshi for authorized Android security assess
 
 ![Mobile-Hack Preview](Images/mobile-hacking.png)
 
-> Add your screenshot as `images/mobile-hacking.png`.
-
 ---
 
 ## 🚀 Features
