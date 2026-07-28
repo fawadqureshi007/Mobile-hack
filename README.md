@@ -33,9 +33,9 @@ Mobile-Hack is developed by Fawad Qureshi for authorized Android security assess
 
 ## 🖼️ Preview
 
-![DroidHunter Preview](assets/droidhunter-preview.png)
+![Mobile-Hack Preview](images/mobile-hack-preview.png)
 
-> Add your screenshot as `assets/droidhunter-preview.png`.
+> Add your screenshot as `images/mobile-hacking.png`.
 
 ---
 
