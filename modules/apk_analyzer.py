@@ -314,3 +314,4 @@ def interactive_shell(device_id: str):
         cmd += ["-s", device_id]
     cmd += ["shell"]
     subprocess.call(cmd)
+                          
