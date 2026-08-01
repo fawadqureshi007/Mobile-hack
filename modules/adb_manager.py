@@ -1,14 +1,12 @@
 """
-Mobile-Hack — APK Static Analyzer Module
+Mobile-Hack — ADB Framework
 Developer  Fawad Qureshi
 Instagram: @h4cker_fawad
 """
 
-import zipfile
-import os
+import subprocess
 import re
-import hashlib
-import struct
+import os
 import time
 from rich.console import Console
 from rich.table import Table
@@ -17,336 +15,302 @@ from rich import box
 
 console = Console()
 
-# ─── Dangerous Android Permissions ────────────────────────────────────────────
-DANGEROUS_PERMS = {
-    "android.permission.READ_CONTACTS":          "HIGH",
-    "android.permission.WRITE_CONTACTS":         "HIGH",
-    "android.permission.READ_SMS":               "HIGH",
-    "android.permission.SEND_SMS":               "HIGH",
-    "android.permission.RECEIVE_SMS":            "HIGH",
-    "android.permission.READ_CALL_LOG":          "HIGH",
-    "android.permission.WRITE_CALL_LOG":         "HIGH",
-    "android.permission.RECORD_AUDIO":           "HIGH",
-    "android.permission.CAMERA":                 "MEDIUM",
-    "android.permission.ACCESS_FINE_LOCATION":   "HIGH",
-    "android.permission.ACCESS_COARSE_LOCATION": "MEDIUM",
-    "android.permission.READ_EXTERNAL_STORAGE":  "MEDIUM",
-    "android.permission.WRITE_EXTERNAL_STORAGE": "MEDIUM",
-    "android.permission.PROCESS_OUTGOING_CALLS": "HIGH",
-    "android.permission.INTERNET":               "LOW",
-    "android.permission.CHANGE_WIFI_STATE":      "MEDIUM",
-    "android.permission.BLUETOOTH":              "LOW",
-    "android.permission.NFC":                    "LOW",
-    "android.permission.GET_ACCOUNTS":           "MEDIUM",
-    "android.permission.USE_CREDENTIALS":        "HIGH",
-    "android.permission.READ_PHONE_STATE":        "HIGH",
-    "android.permission.CALL_PHONE":             "HIGH",
-    "android.permission.RECEIVE_BOOT_COMPLETED": "MEDIUM",
-    "android.permission.SYSTEM_ALERT_WINDOW":    "HIGH",
-    "android.permission.INSTALL_PACKAGES":       "CRITICAL",
-    "android.permission.DELETE_PACKAGES":        "CRITICAL",
-    "android.permission.BIND_DEVICE_ADMIN":      "CRITICAL",
-    "android.permission.MOUNT_UNMOUNT_FILESYSTEMS": "HIGH",
-    "android.permission.MASTER_CLEAR":           "CRITICAL",
-}
 
-# ─── Secret patterns to search in DEX/resources ───────────────────────────────
-SECRET_PATTERNS = [
-    (r"(?i)(api_?key|apikey)\s*[=:]\s*['\"]?([a-zA-Z0-9_\-]{16,})", "API Key"),
-    (r"(?i)(secret|password|passwd|pwd)\s*[=:]\s*['\"]?(\S{8,})", "Secret/Password"),
-    (r"(?i)(access_?token|auth_?token)\s*[=:]\s*['\"]?([a-zA-Z0-9_\-\.]{16,})", "Auth Token"),
-    (r"(?i)(aws_?access_?key_?id)\s*[=:]\s*['\"]?(AKIA[0-9A-Z]{16})", "AWS Access Key"),
-    (r"(?i)(aws_?secret)\s*[=:]\s*['\"]?([a-zA-Z0-9/+=]{40})", "AWS Secret"),
-    (r"(?i)(BEGIN (RSA|EC|DSA|OPENSSH) PRIVATE KEY)", "Private Key"),
-    (r"(?i)(client_?id|client_?secret)\s*[=:]\s*['\"]?(\S{8,})", "OAuth Credential"),
-    (r"(?i)(firebase[a-zA-Z_]*)\s*[=:]\s*['\"]?([a-zA-Z0-9_\-\.]{16,})", "Firebase Config"),
-    (r"(?i)google_maps_key\s*[=:]\s*['\"]?(AIza[0-9A-Za-z\-_]{35})", "Google Maps Key"),
-    (r"(?i)(jdbc:[a-z]+://\S+)", "Database URL"),
-    (r"https?://(?:\S+:)?\S+@[\w\.\-]+", "URL with Credentials"),
-]
+def run_adb(args: list, device_id: str = None, capture: bool = True):
+    """Run an adb command and return stdout."""
+    cmd = ["adb"]
+    if device_id:
+        cmd += ["-s", device_id]
+    cmd += args
+    try:
+        result = subprocess.run(cmd, capture_output=capture, text=True, timeout=30)
+        return result.stdout.strip(), result.returncode
+    except FileNotFoundError:
+        return None, -1
+    except subprocess.TimeoutExpired:
+        return "TIMEOUT", -2
 
 
-def _file_hash(path: str) -> dict:
-    result = {}
-    for algo in ["md5", "sha1", "sha256"]:
-        h = hashlib.new(algo)
-        with open(path, "rb") as f:
-            for chunk in iter(lambda: f.read(8192), b""):
-                h.update(chunk)
-        result[algo.upper()] = h.hexdigest()
-    return result
+def run_adb_global(args: list, capture: bool = True):
+    """Run a global adb command without selecting a device."""
+    try:
+        result = subprocess.run(["adb"] + args, capture_output=capture, text=True, timeout=30)
+        output = "\n".join(part for part in [result.stdout.strip(), result.stderr.strip()] if part)
+        return output, result.returncode
+    except FileNotFoundError:
+        return None, -1
+    except subprocess.TimeoutExpired:
+        return "TIMEOUT", -2
 
 
-def _parse_manifest_permissions(manifest_xml: str) -> list:
-    return re.findall(r'android\.permission\.\w+', manifest_xml)
+def check_adb():
+    """Check if adb is installed."""
+    out, rc = run_adb(["version"])
+    if rc == -1:
+        console.print("[bold red]✗ ADB not found![/] Install Android Debug Bridge first.", style="red")
+        return False
+    console.print(f"[green]✓ ADB found:[/] {out.splitlines()[0]}")
+    return True
 
 
-def _extract_strings_from_bytes(data: bytes) -> list:
-    """Extract printable ASCII strings from binary data."""
-    result = []
-    current = []
-    for byte in data:
-        if 32 <= byte <= 126:
-            current.append(chr(byte))
-        else:
-            if len(current) >= 8:
-                result.append("".join(current))
-            current = []
-    return result
+def list_devices():
+    """List all connected Android devices."""
+    out, rc = run_adb(["devices", "-l"])
+    if out is None:
+        console.print("[red]ADB not available.[/]")
+        return []
+
+    lines = out.strip().splitlines()
+    devices = []
+    table = Table(title="[bold magenta]📱 Connected Devices[/]", box=box.DOUBLE_EDGE,
+                  border_style="magenta", header_style="bold cyan")
+    table.add_column("Serial", style="cyan")
+    table.add_column("State", style="green")
+    table.add_column("Model", style="yellow")
+    table.add_column("Transport", style="white")
+
+    for line in lines[1:]:
+        if not line.strip():
+            continue
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        serial = parts[0]
+        state = parts[1]
+        model = next((p.split(":")[1] for p in parts if p.startswith("model:")), "Unknown")
+        transport = next((p.split(":")[1] for p in parts if p.startswith("transport_id:")), "N/A")
+        devices.append({"serial": serial, "state": state, "model": model})
+        table.add_row(serial, state, model, transport)
+
+    console.print(table)
+    if not devices:
+        console.print("[yellow]⚠  No devices connected. Connect a device and enable USB Debugging.[/]")
+    return devices
 
 
-def analyze_apk(apk_path: str) -> dict:
-    """Full static analysis of an APK file."""
-    findings = {
-        "path": apk_path,
-        "hashes": {},
-        "manifest": {},
-        "permissions": [],
-        "dangerous_permissions": [],
-        "exported_components": {"activities": [], "services": [], "receivers": [], "providers": []},
-        "secrets": [],
-        "urls": [],
-        "ips": [],
-        "libs": [],
-        "certificate": {},
-        "obfuscated": False,
-        "backup_enabled": False,
-        "debuggable": False,
-        "network_security_config": False,
-        "vulnerabilities": [],
+def device_info(device_id: str):
+    """Gather comprehensive device info."""
+    props = {
+        "Brand": "ro.product.brand",
+        "Model": "ro.product.model",
+        "Android Version": "ro.build.version.release",
+        "SDK Level": "ro.build.version.sdk",
+        "Build ID": "ro.build.id",
+        "Security Patch": "ro.build.version.security_patch",
+        "Fingerprint": "ro.build.fingerprint",
+        "CPU ABI": "ro.product.cpu.abi",
+        "IMEI (if rooted)": "ril.serialnumber",
+        "Serial": "ro.serialno",
     }
 
-    if not os.path.isfile(apk_path):
-        console.print(f"[red]✗ File not found: {apk_path}[/]")
-        return findings
+    table = Table(title=f"[bold magenta]🔎 Device Info [{device_id}][/]",
+                  box=box.SIMPLE_HEAVY, border_style="cyan", header_style="bold cyan")
+    table.add_column("Property", style="cyan")
+    table.add_column("Value", style="white")
 
-    console.print(Panel(f"[bold cyan]Analyzing:[/] {apk_path}", border_style="magenta"))
+    for label, prop in props.items():
+        val, _ = run_adb(["shell", f"getprop {prop}"], device_id)
+        table.add_row(label, val or "[dim]N/A[/]")
 
-    # ── File hashes ──────────────────────────────────────────────────────────
-    with console.status("[cyan]Computing hashes...[/]"):
-        findings["hashes"] = _file_hash(apk_path)
-
-    h_table = Table(title="File Hashes", box=box.SIMPLE, border_style="dim")
-    h_table.add_column("Algorithm", style="cyan")
-    h_table.add_column("Hash", style="white")
-    for algo, val in findings["hashes"].items():
-        h_table.add_row(algo, val)
-    console.print(h_table)
-
-    try:
-        zf = zipfile.ZipFile(apk_path, "r")
-    except zipfile.BadZipFile:
-        console.print("[red]✗ Not a valid APK (ZIP) file.[/]")
-        return findings
-
-    namelist = zf.namelist()
-    console.print(f"[dim]APK contains [bold]{len(namelist)}[/] entries.[/]")
-
-    # ── Manifest parsing ─────────────────────────────────────────────────────
-    if "AndroidManifest.xml" in namelist:
-        with console.status("[cyan]Parsing AndroidManifest.xml...[/]"):
-            raw_manifest = zf.read("AndroidManifest.xml")
-            # Try to decode as text (non-binary APKs or already decoded)
-            try:
-                manifest_text = raw_manifest.decode("utf-8", errors="ignore")
-            except Exception:
-                manifest_text = raw_manifest.decode("latin-1", errors="ignore")
-
-            # Parse flags
-            findings["debuggable"] = "android:debuggable=\"true\"" in manifest_text or \
-                                     b'debuggable' in raw_manifest
-            findings["backup_enabled"] = "android:allowBackup=\"true\"" in manifest_text or \
-                                         b'allowBackup' in raw_manifest
-
-            # Extract all permissions
-            perms = _parse_manifest_permissions(manifest_text)
-            # Also scan binary bytes
-            perms += re.findall(rb'android\.permission\.(\w+)', raw_manifest)
-            perms = list(set([p if isinstance(p, str) else f"android.permission.{p.decode()}" for p in perms]))
-            findings["permissions"] = perms
-
-            for perm in perms:
-                full = perm if perm.startswith("android.permission.") else perm
-                sev = DANGEROUS_PERMS.get(full)
-                if sev:
-                    findings["dangerous_permissions"].append({"permission": full, "severity": sev})
-
-            # Exported components
-            for comp_type, tag in [("activities", "activity"), ("services", "service"),
-                                    ("receivers", "receiver"), ("providers", "provider")]:
-                exported = re.findall(
-                    rf'<{tag}[^>]*android:name="([^"]+)"[^>]*android:exported="true"', manifest_text)
-                findings["exported_components"][comp_type] = exported
-
-            # Network security config
-            findings["network_security_config"] = "network_security_config" in manifest_text
-
-            # Package & SDK
-            pkg = re.search(r'package="([^"]+)"', manifest_text)
-            min_sdk = re.search(r'android:minSdkVersion="(\d+)"', manifest_text)
-            target_sdk = re.search(r'android:targetSdkVersion="(\d+)"', manifest_text)
-            findings["manifest"] = {
-                "package": pkg.group(1) if pkg else "Unknown",
-                "min_sdk": min_sdk.group(1) if min_sdk else "Unknown",
-                "target_sdk": target_sdk.group(1) if target_sdk else "Unknown",
-            }
-
-    # ── Native libraries ─────────────────────────────────────────────────────
-    libs = [n for n in namelist if n.endswith(".so")]
-    findings["libs"] = libs
-
-    # ── Secret scanning across all files ────────────────────────────────────
-    with console.status("[cyan]Scanning for hardcoded secrets...[/]"):
-        for entry in namelist:
-            if any(entry.endswith(ext) for ext in [".dex", ".xml", ".json", ".properties", ".js", ".html", ".txt"]):
-                try:
-                    content = zf.read(entry).decode("utf-8", errors="ignore")
-                    for pattern, label in SECRET_PATTERNS:
-                        for match in re.finditer(pattern, content):
-                            findings["secrets"].append({
-                                "file": entry,
-                                "type": label,
-                                "snippet": match.group(0)[:80],
-                                "severity": "HIGH",
-                            })
-                except Exception:
-                    pass
-
-    # ── URL & IP extraction ──────────────────────────────────────────────────
-    with console.status("[cyan]Extracting URLs and IPs...[/]"):
-        all_text = ""
-        for entry in namelist:
-            try:
-                all_text += zf.read(entry).decode("utf-8", errors="ignore")
-            except Exception:
-                pass
-
-        urls = list(set(re.findall(r'https?://[^\s\'"<>{}\[\]]+', all_text)))
-        ips = list(set(re.findall(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', all_text)))
-        findings["urls"] = [u for u in urls if len(u) < 200][:50]
-        findings["ips"] = [ip for ip in ips if not ip.startswith("0.") and ip != "127.0.0.1"][:20]
-
-    # ── Obfuscation detection ────────────────────────────────────────────────
-    dex_entries = [n for n in namelist if n.endswith(".dex")]
-    if dex_entries:
-        dex_content = zf.read(dex_entries[0]).decode("utf-8", errors="ignore")
-        short_class_ratio = len(re.findall(r'\b[a-z]{1,2}\b', dex_content)) / max(len(dex_content), 1)
-        findings["obfuscated"] = short_class_ratio > 0.01
-
-    zf.close()
-
-    # ── Vulnerability heuristics ─────────────────────────────────────────────
-    if findings["debuggable"]:
-        findings["vulnerabilities"].append({
-            "name": "Debuggable Application",
-            "severity": "HIGH",
-            "detail": "android:debuggable=true allows attaching debugger, code extraction.",
-            "cve": None,
-        })
-    if findings["backup_enabled"]:
-        findings["vulnerabilities"].append({
-            "name": "Backup Enabled",
-            "severity": "MEDIUM",
-            "detail": "android:allowBackup=true allows full data extraction via adb backup.",
-            "cve": None,
-        })
-    if not findings["network_security_config"]:
-        findings["vulnerabilities"].append({
-            "name": "No Network Security Config",
-            "severity": "MEDIUM",
-            "detail": "App may allow cleartext HTTP traffic (no network_security_config defined).",
-            "cve": None,
-        })
-    total_exported = sum(len(v) for v in findings["exported_components"].values())
-    if total_exported > 0:
-        findings["vulnerabilities"].append({
-            "name": f"Exported Components ({total_exported})",
-            "severity": "HIGH",
-            "detail": f"Exported components may be exploited by other apps without permission.",
-            "cve": None,
-        })
-    if findings["secrets"]:
-        findings["vulnerabilities"].append({
-            "name": f"Hardcoded Secrets ({len(findings['secrets'])})",
-            "severity": "CRITICAL",
-            "detail": "Hardcoded API keys, passwords, or tokens found in APK.",
-            "cve": None,
-        })
-
-    _print_analysis_results(findings)
-    return findings
+    console.print(table)
 
 
-def _print_analysis_results(f: dict):
-    """Pretty-print analysis results."""
-    SEV_COLOR = {"CRITICAL": "bold red", "HIGH": "red", "MEDIUM": "yellow", "LOW": "cyan", "INFO": "dim"}
+def list_packages(device_id: str, pkg_filter: str = "all"):
+    """List installed packages."""
+    flags = {
+        "all": [],
+        "system": ["-s"],
+        "third_party": ["-3"],
+        "disabled": ["-d"],
+    }
+    flag = flags.get(pkg_filter, [])
+    out, _ = run_adb(["shell", "pm", "list", "packages"] + flag, device_id)
+    if not out:
+        console.print("[red]Could not fetch packages.[/]")
+        return []
 
-    console.print("\n[bold magenta]══════════ APK ANALYSIS RESULTS ══════════[/]")
+    packages = [line.replace("package:", "").strip() for line in out.splitlines() if line.startswith("package:")]
 
-    # Manifest info
-    m = f.get("manifest", {})
+    table = Table(title=f"[bold magenta]📦 Packages ({pkg_filter}) — {len(packages)} found[/]",
+                  box=box.SIMPLE, border_style="cyan", header_style="bold cyan")
+    table.add_column("#", style="dim", width=5)
+    table.add_column("Package Name", style="white")
+
+    for i, pkg in enumerate(packages, 1):
+        table.add_row(str(i), pkg)
+
+    console.print(table)
+    return packages
+
+
+def dumpsys(device_id: str, service: str = "package"):
+    """Run dumpsys for a given service."""
+    console.print(f"[cyan]Running dumpsys {service}...[/]")
+    out, _ = run_adb(["shell", "dumpsys", service], device_id)
+    if out:
+        console.print(Panel(out[:3000] + ("..." if len(out) > 3000 else ""),
+                            title=f"[bold]dumpsys {service}[/]", border_style="cyan"))
+    return out
+
+
+def capture_logcat(device_id: str, lines: int = 200):
+    """Capture last N lines of logcat."""
+    console.print(f"[cyan]Capturing last {lines} lines of logcat...[/]")
+    out, _ = run_adb(["shell", f"logcat -d -t {lines}"], device_id)
+    filename = f"droidhunter_logcat_{int(time.time())}.txt"
+    if out:
+        with open(filename, "w") as f:
+            f.write(out)
+        console.print(f"[green]✓ Logcat saved to:[/] {filename}")
+
+    # Highlight security-sensitive patterns
+    patterns = ["password", "token", "secret", "api_key", "auth", "credential", "private"]
+    hits = []
+    for line in out.splitlines():
+        low = line.lower()
+        for p in patterns:
+            if p in low:
+                hits.append(line)
+                break
+
+    if hits:
+        console.print(f"\n[bold red]⚠  {len(hits)} sensitive pattern(s) found in logcat:[/]")
+        for h in hits[:20]:
+            console.print(f"  [red]►[/] {h}")
+    return out
+
+
+def pull_file(device_id: str, remote_path: str, local_path: str = "."):
+    """Pull a file from device."""
+    out, rc = run_adb(["pull", remote_path, local_path], device_id)
+    if rc == 0:
+        console.print(f"[green]✓ Pulled:[/] {remote_path} → {local_path}")
+    else:
+        console.print(f"[red]✗ Failed to pull {remote_path}[/]")
+
+
+def push_file(device_id: str, local_path: str, remote_path: str):
+    """Push a file to device."""
+    out, rc = run_adb(["push", local_path, remote_path], device_id)
+    if rc == 0:
+        console.print(f"[green]✓ Pushed:[/] {local_path} → {remote_path}")
+    else:
+        console.print(f"[red]✗ Failed to push {local_path}[/]")
+
+
+def take_screenshot(device_id: str):
+    """Take a screenshot and pull it."""
+    remote = "/sdcard/droidhunter_screen.png"
+    local = "droidhunter_screen.png"
+    run_adb(["shell", "screencap", "-p", remote], device_id)
+    pull_file(device_id, remote, local)
+    run_adb(["shell", "rm", remote], device_id)
+    return local
+
+
+def enable_adb_wifi(device_id: str, port: int = 5555):
+    """Enable ADB over WiFi."""
+    console.print(f"[cyan]Enabling ADB over WiFi on port {port}...[/]")
+    run_adb(["shell", f"setprop service.adb.tcp.port {port}"], device_id)
+    run_adb(["shell", "stop adbd && start adbd"], device_id)
+    ip_out, _ = run_adb(["shell", "ip addr show wlan0"], device_id)
+    ip_match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", ip_out or "")
+    if ip_match:
+        ip = ip_match.group(1)
+        console.print(f"[green]✓ ADB WiFi enabled![/] Connect with: [bold yellow]adb connect {ip}:{port}[/]")
+        return ip, port
+    else:
+        console.print("[yellow]⚠  Could not determine device IP. Connect manually.[/]")
+        return None, port
+
+
+def _extract_device_ip(text: str) -> str:
+    match = re.search(r"\binet\s+(\d+\.\d+\.\d+\.\d+)", text or "")
+    if match:
+        return match.group(1)
+    match = re.search(r"\bsrc\s+(\d+\.\d+\.\d+\.\d+)", text or "")
+    if match:
+        return match.group(1)
+    return None
+
+
+def _get_wifi_ip(device_id: str) -> str:
+    wlan_out, _ = run_adb(["shell", "ip addr show wlan0"], device_id)
+    ip = _extract_device_ip(wlan_out or "")
+    if ip:
+        return ip
+
+    route_out, _ = run_adb(["shell", "ip route"], device_id)
+    return _extract_device_ip(route_out or "")
+
+
+def auto_adb_wifi_connect(device_id: str, port: int = 5555):
+    """Automatically switch USB ADB to WiFi mode and connect to the device."""
+    if not device_id:
+        console.print(Panel(
+            "[bold red]No device selected.[/]\nConnect a device with USB Debugging enabled and try again.",
+            title="[bold red]Auto ADB WiFi Connect[/]",
+            border_style="red",
+        ))
+        return False
+
+    ip = _get_wifi_ip(device_id)
+    if not ip:
+        console.print(Panel(
+            "[bold red]Could not determine device WiFi IP.[/]\n"
+            "Make sure WiFi is enabled and the phone is connected to the same network.",
+            title="[bold red]Auto ADB WiFi Connect[/]",
+            border_style="red",
+        ))
+        return False
+
+    console.print(f"[cyan]Switching ADB to TCP mode on port {port}...[/]")
+    tcpip_out, tcpip_rc = run_adb(["tcpip", str(port)], device_id)
+    if tcpip_rc != 0:
+        console.print(Panel(
+            f"[bold red]Failed to enable ADB TCP mode.[/]\n\n{tcpip_out or '(no output)'}",
+            title="[bold red]Auto ADB WiFi Connect[/]",
+            border_style="red",
+        ))
+        return False
+
+    time.sleep(2)
+
+    target = f"{ip}:{port}"
+    console.print(f"[cyan]Connecting to {target}...[/]")
+    connect_out, connect_rc = run_adb_global(["connect", target])
+    connected = connect_out and ("connected to" in connect_out.lower() or "already connected" in connect_out.lower())
+    if connect_rc != 0 or not connected:
+        console.print(Panel(
+            f"[bold red]Failed to connect over ADB WiFi.[/]\n\n{connect_out or '(no output)'}",
+            title="[bold red]Auto ADB WiFi Connect[/]",
+            border_style="red",
+        ))
+        return False
+
     console.print(Panel(
-        f"  Package: [bold cyan]{m.get('package', 'N/A')}[/]\n"
-        f"  Min SDK: [yellow]{m.get('min_sdk', 'N/A')}[/]  Target SDK: [yellow]{m.get('target_sdk', 'N/A')}[/]\n"
-        f"  Debuggable: {'[bold red]YES ⚠[/]' if f['debuggable'] else '[green]No[/]'}   "
-        f"Backup Enabled: {'[bold red]YES ⚠[/]' if f['backup_enabled'] else '[green]No[/]'}   "
-        f"Obfuscated: {'[green]Yes[/]' if f['obfuscated'] else '[yellow]No[/]'}",
-        title="[bold]App Info[/]", border_style="cyan"))
+        f"[bold green]ADB WiFi connection ready.[/]\n"
+        f"[white]Connected to:[/] [bold cyan]{target}[/]\n"
+        f"[white]You can now unplug the USB cable.[/]\n\n"
+        f"[dim]{connect_out}[/]",
+        title="[bold green]Auto ADB WiFi Connect[/]",
+        border_style="green",
+    ))
+    return True
 
-    # Dangerous permissions
-    if f["dangerous_permissions"]:
-        pt = Table(title=f"⚠ Dangerous Permissions ({len(f['dangerous_permissions'])})",
-                   box=box.SIMPLE, border_style="red", header_style="bold red")
-        pt.add_column("Permission", style="white")
-        pt.add_column("Severity", style="red")
-        for p in f["dangerous_permissions"]:
-            sev = p["severity"]
-            pt.add_row(p["permission"], f"[{SEV_COLOR.get(sev, 'white')}]{sev}[/]")
-        console.print(pt)
 
-    # Exported components
-    for comp_type, items in f["exported_components"].items():
-        if items:
-            et = Table(title=f"📤 Exported {comp_type.title()} ({len(items)})",
-                       box=box.SIMPLE, border_style="yellow", header_style="bold yellow")
-            et.add_column("Component", style="white")
-            for item in items:
-                et.add_row(item)
-            console.print(et)
+def shell_cmd(device_id: str, cmd: str):
+    """Execute a raw shell command."""
+    out, rc = run_adb(["shell", cmd], device_id)
+    console.print(Panel(out or "(no output)", title=f"[dim]$ {cmd}[/]", border_style="dim"))
+    return out
 
-    # Secrets
-    if f["secrets"]:
-        st = Table(title=f"🔑 Hardcoded Secrets ({len(f['secrets'])})",
-                   box=box.SIMPLE, border_style="red", header_style="bold red")
-        st.add_column("File", style="dim")
-        st.add_column("Type", style="red")
-        st.add_column("Snippet", style="white")
-        for s in f["secrets"][:20]:
-            st.add_row(s["file"], s["type"], s["snippet"])
-        console.print(st)
 
-    # URLs
-    if f["urls"]:
-        console.print(f"\n[bold cyan]🌐 Embedded URLs ({len(f['urls'])}):[/]")
-        for u in f["urls"][:15]:
-            console.print(f"  [dim]►[/] {u}")
-
-    # Vulnerabilities summary
-    if f["vulnerabilities"]:
-        vt = Table(title=f"🚨 Vulnerabilities Found ({len(f['vulnerabilities'])})",
-                   box=box.SIMPLE_HEAVY, border_style="red", header_style="bold red")
-        vt.add_column("Finding", style="white")
-        vt.add_column("Severity", style="red")
-        vt.add_column("Detail", style="dim")
-        for v in f["vulnerabilities"]:
-            sev = v["severity"]
-            vt.add_row(v["name"], f"[{SEV_COLOR.get(sev, 'white')}]{sev}[/]", v["detail"])
-        console.print(vt)
-
-    # Native libs
-    if f["libs"]:
-        console.print(f"\n[bold cyan]🔧 Native Libraries ({len(f['libs'])}):[/]")
-        for lib in f["libs"]:
-            console.print(f"  [dim]►[/] {lib}")
-
-    console.print("\n[bold green]✓ Static analysis complete.[/]")
+def interactive_shell(device_id: str):
+    """Drop into an interactive ADB shell."""
+    console.print("[bold yellow]Dropping into ADB shell. Type 'exit' to return.[/]")
+    cmd = ["adb"]
+    if device_id:
+        cmd += ["-s", device_id]
+    cmd += ["shell"]
+    subprocess.call(cmd)
